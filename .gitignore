@@ -1,0 +1,43 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+*.pub
+!ssh_public_key.example
+
+# Azure CLI
+.azure/
+
+# Logs
+*.log
+
+# Plan files
+*.tfplan
+tfplan*

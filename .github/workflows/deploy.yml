@@ -1,0 +1,266 @@
+# ============================================================================
+# PIPELINE NAME: Deploy Windows Server 2025 VM with Bastion to Azure
+# PURPOSE: Secure, multi-stage pipeline with manual approval and drift protection.
+#
+# PREREQUISITES (⚠️ MUST BE COMPLETED BEFORE RUNNING):
+# 1. Terraform Remote Backend (Azure Storage) MUST be configured in main.tf
+#    - See BACKEND-SETUP.md for complete setup instructions
+#    - Backend allows state to persist between the 'plan' and 'apply' runners
+#    - Without backend, pipeline WILL FAIL at apply stage
+# 2. GitHub Environment 'production' must be created in Settings -> Environments
+#    - Add required reviewers to enable manual approval gate
+#
+# SECURE PATTERN:
+# 1. Split into two jobs: 'plan' and 'apply'
+# 2. Plan job conditionally runs 'terraform plan' OR 'terraform plan -destroy'
+# 3. Apply job 'needs' plan to finish first
+# 4. 'environment: production' creates a manual approval gate BETWEEN jobs
+# 5. Apply job runs appropriate action after approval (apply OR destroy)
+# 6. No plan files are stored - prevents secret leakage from plan artifacts
+# 7. Both jobs authenticate independently (separate runners)
+# 8. Remote backend ensures state persistence across jobs
+# ============================================================================
+
+# ============================================================================
+# PIPELINE NAME
+name: Deploy VM with Bastion
+# ============================================================================
+
+# ============================================================================
+# TRIGGER: When does this pipeline run?
+# ============================================================================
+on:
+  # Trigger when code is pushed to the main branch
+  push:
+    branches:
+      - main
+    # Only run if Terraform files or the pipeline itself changes
+    paths:
+      - "**.tf" # Any Terraform file
+      - "**.tfvars" # Any Terraform variables file
+      - ".github/workflows/**" # Pipeline changes
+
+  # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    # Manual triggers can include optional inputs
+    inputs:
+      destroy:
+        description: "Destroy infrastructure? (true/false)"
+        required: false
+        default: "false"
+
+# ============================================================================
+# ENVIRONMENT VARIABLES: Values available to all jobs
+# ============================================================================
+env:
+  TF_VERSION: "1.6.0" # Terraform version to use
+  WORKING_DIR: "." # Directory containing Terraform files
+
+# ============================================================================
+# JOBS: The actual work the pipeline does
+# ============================================================================
+jobs:
+  # --------------------------------------------------------------------------
+  # JOB 1: Plan Infrastructure
+  # --------------------------------------------------------------------------
+  # This job validates and plans changes for review. The plan is logged
+  # but NOT saved to a file to prevent potential secret leakage.
+  # Conditionally runs either 'plan' or 'plan -destroy' based on input.
+  plan:
+    name: "Plan Infrastructure"
+    runs-on: ubuntu-latest
+
+    # Set default settings for all steps in this job
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      # ----------------------------------------------------------------------
+      # STEP 1: Checkout Code
+      # ----------------------------------------------------------------------
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------------
+      # STEP 2: Setup Terraform
+      # ----------------------------------------------------------------------
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # ----------------------------------------------------------------------
+      # STEP 3: Azure Login
+      # ----------------------------------------------------------------------
+      - name: "🔐 Azure Login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ----------------------------------------------------------------------
+      # STEP 4: Terraform Init
+      # ----------------------------------------------------------------------
+      - name: "🏗️ Terraform Init"
+        run: terraform init
+
+      # ----------------------------------------------------------------------
+      # STEP 5: Terraform Validate
+      # ----------------------------------------------------------------------
+      - name: "✅ Terraform Validate"
+        run: terraform validate
+
+      # ----------------------------------------------------------------------
+      # STEP 6: Terraform Format Check
+      # ----------------------------------------------------------------------
+      - name: "📝 Terraform Format Check"
+        run: terraform fmt -check -recursive
+
+      # ----------------------------------------------------------------------
+      # STEP 7: Terraform Plan (For Review Only)
+      # ----------------------------------------------------------------------
+      # SECURITY: Using TF_VAR_ environment variable instead of -var flag
+      # Benefits:
+      # - Secrets don't appear in command-line logs
+      # - Reduced exposure risk if Terraform errors
+      # - Industry standard for secret management
+      # - Terraform automatically detects TF_VAR_* environment variables
+      #
+      # NOTE: No -out flag used. Plan output is logged for human review,
+      # but NOT saved to prevent potential secret leakage from plan files.
+      - name: "📋 Terraform Plan (Review Only)"
+        env:
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [ "${{ github.event.inputs.destroy }}" == "true" ]; then
+            echo "⚠️ RUNNING PLAN FOR DESTRUCTION"
+            terraform plan -destroy
+          else
+            echo "🚀 RUNNING PLAN FOR DEPLOYMENT"
+            terraform plan
+          fi
+
+  # --------------------------------------------------------------------------
+  # JOB 2: Apply Infrastructure
+  # --------------------------------------------------------------------------
+  # This job runs the appropriate action after manual approval.
+  # Conditionally executes 'apply' OR 'destroy' based on workflow input.
+  # Runs on a separate runner with fresh authentication.
+  apply:
+    name: "Apply Infrastructure"
+    runs-on: ubuntu-latest
+
+    # This job only runs after 'plan' completes successfully
+    needs: plan
+
+    # The environment gate creates a manual approval pause BEFORE this job runs
+    environment:
+      name: production
+      url: https://portal.azure.com
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      # ----------------------------------------------------------------------
+      # STEP 1: Checkout Code
+      # ----------------------------------------------------------------------
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------------
+      # STEP 2: Setup Terraform
+      # ----------------------------------------------------------------------
+      - name: "🔧 Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # ----------------------------------------------------------------------
+      # STEP 3: Azure Login
+      # ----------------------------------------------------------------------
+      - name: "🔐 Azure Login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ----------------------------------------------------------------------
+      # STEP 4: Terraform Init
+      # ----------------------------------------------------------------------
+      - name: "🏗️ Terraform Init"
+        run: terraform init
+
+      # ----------------------------------------------------------------------
+      # STEP 5: Terraform Apply (CONDITIONAL)
+      # ----------------------------------------------------------------------
+      # This step only runs AFTER manual approval AND if NOT destroying
+      # Runs a FRESH apply (not from a saved plan file)
+      # The logic lies in the specific symbol != which means "DOES NOT EQUAL."
+      - name: "🚀 Terraform Apply"
+        if: github.event.inputs.destroy != 'true'
+        env:
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
+        run: terraform apply -auto-approve
+
+      # ----------------------------------------------------------------------
+      # STEP 6: Terraform Destroy (CONDITIONAL)
+      # ----------------------------------------------------------------------
+      # This step only runs AFTER manual approval AND if destroying
+      # SECURITY: Using TF_VAR_ for secure secret handling
+      - name: "💣 Terraform Destroy"
+        if: github.event.inputs.destroy == 'true'
+        env:
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
+        run: terraform destroy -auto-approve
+
+      # ----------------------------------------------------------------------
+      # STEP 7: Terraform Output
+      # ----------------------------------------------------------------------
+      # Only show outputs if we deployed (not destroyed)
+      - name: "📊 Terraform Output"
+        if: github.event.inputs.destroy != 'true'
+        run: terraform output
+# ============================================================================
+# SUMMARY OF WHAT THIS PIPELINE DOES:
+# ============================================================================
+# JOB 1: PLAN (For Review)
+# 1. Checks out your code from GitHub
+# 2. Installs Terraform
+# 3. Logs into Azure
+# 4. Initialises Terraform (downloads providers)
+# 5. Validates your Terraform code
+# 6. Checks code formatting
+# 7. Conditionally runs 'plan' OR 'plan -destroy' for review
+#    - Shows what WILL BE CREATED (if deploying)
+#    - Shows what WILL BE DESTROYED (if destroying)
+#
+# --- PAUSES HERE FOR MANUAL APPROVAL ---
+#
+# JOB 2: APPLY (Runs ONLY after Plan succeeds AND manual approval)
+# 1. Checks out your code from GitHub (fresh runner)
+# 2. Sets up Terraform
+# 3. Logs into Azure
+# 4. Initializes Terraform
+# 5. Conditionally runs 'apply' OR 'destroy' based on workflow input
+#    - Creates Windows Server 2025 VM in Azure (if deploying)
+#    - Destroys all managed resources (if destroying)
+# 6. Shows outputs (if deployed, not destroyed)
+#
+# SECURE PATTERN FOR GITHUB ACTIONS:
+# - Plan job logs output for human review (no plan file saved)
+# - Conditional logic ensures reviewers see accurate destruction plans
+# - Manual approval gate occurs BETWEEN jobs (environment: production)
+# - Apply job runs appropriate action after approval
+# - No plan files stored as artifacts (prevents potential secret leakage)
+# - Each job authenticates independently (separate runners)
+# - Requires remote backend to persist state between runners
+#
+# PREREQUISITES:
+# 1. Remote backend (Azure Storage) MUST be configured in your Terraform files
+# 2. 'production' environment MUST be created: Settings → Environments → 'production'
+# 3. Required reviewers MUST be added to the production environment (Yourself for this lab)
+# ============================================================================
+
