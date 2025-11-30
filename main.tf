@@ -3,7 +3,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "rg-terraform-state"       # Change this
-    storage_account_name = "sttfstatemyfirstpipeline" # Change this (must be globally unique)
+    storage_account_name = "sttfstatess123" # Change this (must be globally unique)
     container_name       = "tfstate"                  # Usually leave as-is
     key                  = "myfirstpipeline.tfstate"  # Change per project
   }
