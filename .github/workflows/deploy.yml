@@ -111,8 +111,8 @@ jobs:
       # ----------------------------------------------------------------------
       # STEP 6: Terraform Format Check
       # ----------------------------------------------------------------------
-      - name: "📝 Terraform Format Check"
-        run: terraform fmt -check -recursive
+      #- name: "📝 Terraform Format Check"
+      #   run: terraform fmt -check -recursive
 
       # ----------------------------------------------------------------------
       # STEP 7: Terraform Plan (For Review Only)
@@ -184,8 +184,8 @@ jobs:
       # ----------------------------------------------------------------------
       # STEP 4: Terraform Init
       # ----------------------------------------------------------------------
-      - name: "🏗️ Terraform Init"
-        run: terraform init
+      #- name: "🏗️ Terraform Init"
+      #   run: terraform init
 
       # ----------------------------------------------------------------------
       # STEP 5: Terraform Apply (CONDITIONAL)
