@@ -145,9 +145,11 @@ resource "azurerm_virtual_machine_extension" "install_notepadpp" {
   type_handler_version = "1.10"
 
   settings = <<SETTINGS
+
 {
-  "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -Command \"winget install --id Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements\""
+  "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -Command \"Invoke-WebRequest -Uri https://aka.ms/getwinget -OutFile winget.msixbundle; Add-AppxPackage winget.msixbundle; winget install --id Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements\""
 }
+
 SETTINGS
 
   depends_on = [azurerm_windows_virtual_machine.main]
