@@ -184,8 +184,8 @@ jobs:
       # ----------------------------------------------------------------------
       # STEP 4: Terraform Init
       # ----------------------------------------------------------------------
-      #- name: "🏗️ Terraform Init"
-      #   run: terraform init
+      - name: "🏗️ Terraform Init"
+        run: terraform init
 
       # ----------------------------------------------------------------------
       # STEP 5: Terraform Apply (CONDITIONAL)
