@@ -132,4 +132,25 @@ resource "azurerm_windows_virtual_machine" "main" {
   patch_mode = "AutomaticByPlatform"
 
   tags = azurerm_resource_group.main.tags
+
 }
+
+
+# Install Notepad++ using Azure Custom Script Extension
+resource "azurerm_virtual_machine_extension" "install_notepadpp" {
+  name                 = "install-notepadpp"
+  virtual_machine_id   = azurerm_windows_virtual_machine.main.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+
+  settings = <<SETTINGS
+{
+  "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -Command \"winget install --id Notepad++.Notepad++ -e --accept-source-agreements --accept-package-agreements\""
+}
+SETTINGS
+
+  depends_on = [azurerm_windows_virtual_machine.main]
+}
+
+
