@@ -126,5 +126,7 @@ resource "azurerm_windows_virtual_machine" "main" {
     version   = "latest"
   }
 
+  patch_mode = "AutomaticByPlatform"
+
   tags = azurerm_resource_group.main.tags
 }
