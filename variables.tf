@@ -2,13 +2,13 @@
 variable "resource_group_name" {
   description = "Name of the resource group"
   type        = string
-  default     = "rg-myfirstpipeline"
+  default     = "rg-myfirstpl"
 }
 
 variable "location" {
   description = "Azure region where resources will be created"
   type        = string
-  default     = "uksouth"
+  default     = "FranceCentral"
 }
 
 variable "environment" {
