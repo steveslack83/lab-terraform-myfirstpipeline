@@ -1,10 +1,11 @@
+
 terraform {
   required_version = ">= 1.6.0"
 
   backend "azurerm" {
     resource_group_name  = "rg-terraform-state"       # Change this
-    storage_account_name = "sttfstatess123" # Change this (must be globally unique)
-    container_name       = "tfstatess"                  # Usually leave as-is
+    storage_account_name = "sttfstatess123"           # Change this (must be globally unique)
+    container_name       = "tfstatess"                # Usually leave as-is
     key                  = "myfirstpipeline.tfstate"  # Change per project
   }
 
