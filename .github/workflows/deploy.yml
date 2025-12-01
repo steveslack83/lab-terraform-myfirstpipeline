@@ -69,6 +69,11 @@ jobs:
   plan:
     name: "Plan Infrastructure"
     runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     # Set default settings for all steps in this job
     defaults:
@@ -90,8 +95,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-
-
 
       # ----------------------------------------------------------------------
       # STEP 4: Terraform Init
@@ -144,6 +147,11 @@ jobs:
   apply:
     name: "Apply Infrastructure"
     runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     # This job only runs after 'plan' completes successfully
     needs: plan
@@ -172,14 +180,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-
-      # ----------------------------------------------------------------------
-      # STEP 3: Azure Login
-      # ----------------------------------------------------------------------
-      - name: "🔐 Azure Login"
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # ----------------------------------------------------------------------
       # STEP 4: Terraform Init
