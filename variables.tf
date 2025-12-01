@@ -65,7 +65,7 @@ variable "bastion_public_ip_name" {
 variable "vm_name" {
   description = "Name of the virtual machine"
   type        = string
-  default     = "vm-myfirstpipeline"
+  default     = "vm-firstVM"
 }
 
 variable "vm_nic_name" {
