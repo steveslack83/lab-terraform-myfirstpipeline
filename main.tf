@@ -30,6 +30,9 @@ resource "azurerm_resource_group" "main" {
     Environment = var.environment
     ManagedBy   = "Terraform"
     Project     = "My-First-Pipeline"
+    BuildDate   = formatdate("YYYY-MM-DD", timestamp())  # e.g., 2025-12-01
+    BuildTime   = formatdate("HH:mm:ss", timestamp())    # e.g., 10:45:00
+
   }
 }
 
