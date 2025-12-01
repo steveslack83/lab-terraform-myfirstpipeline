@@ -91,13 +91,7 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # ----------------------------------------------------------------------
-      # STEP 3: Azure Login
-      # ----------------------------------------------------------------------
-      - name: "🔐 Azure Login"
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
 
       # ----------------------------------------------------------------------
       # STEP 4: Terraform Init
